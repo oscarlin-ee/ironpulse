@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IronPulse - 智慧訓練組間計時與課表紀錄器</title>
+  <style>
+    :root {
+      --bg-color: #0b1120;
+      --card-bg: #1e293b;
+      --accent-color: #10b981;
+      --accent-glow: rgba(16, 185, 129, 0.25);
+      --text-main: #f8fafc;
+      --text-sub: #94a3b8;
+      --border-color: #334155;
+      --danger: #ef4444;
+      --info: #38bdf8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      display: flex;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 24px 16px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 8px;
+    }
+
+    .brand-title {
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      color: var(--accent-color);
+    }
+
+    .brand-sub {
+      font-size: 0.8rem;
+      color: var(--text-sub);
+    }
+
+    .sound-toggle-btn {
+      background: #1e293b;
+      border: 1px solid var(--border-color);
+      color: var(--text-sub);
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .sound-toggle-btn.active {
+      color: var(--accent-color);
+      border-color: var(--accent-color);
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--border-color);
+    }
+
+    /* 訓練數據快報 */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .stat-box {
+      background: #0f172a;
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .stat-val {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--accent-color);
+    }
+
+    .stat-label {
+      font-size: 0.75rem;
+      color: var(--text-sub);
+      margin-top: 2px;
+    }
+
+    /* 圓環計時器 */
+    .timer-display-wrapper {
+      position: relative;
+      width: 180px;
+      height: 180px;
+      margin: 8px auto 14px auto;
+    }
+
+    .progress-ring {
+      transform: rotate(-90deg);
+    }
+
+    .progress-ring__circle-bg {
+      stroke: var(--border-color);
+      fill: transparent;
+      stroke-width: 9;
+    }
+
+    .progress-ring__circle {
+      stroke: var(--accent-color);
+      fill: transparent;
+      stroke-width: 9;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 0.2s linear, stroke 0.3s ease;
+    }
+
+    .timer-text {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+    }
+
+    .timer-time {
+      font-size: 2.5rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .timer-status {
+      font-size: 0.75rem;
+      color: var(--text-sub);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .preset-group {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      margin: 10px 0;
+      flex-wrap: wrap;
+    }
+
+    .preset-btn {
+      background: #0f172a;
+      border: 1px solid var(--border-color);
+      color: var(--text-sub);
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .preset-btn:hover, .preset-btn.active {
+      border-color: var(--accent-color);
+      color: var(--accent-color);
+      background: rgba(16, 185, 129, 0.1);
+    }
+
+    .control-actions {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    button {
+      cursor: pointer;
+      font-weight: 600;
+      border-radius: 10px;
+      border: none;
+      padding: 10px;
+      font-size: 0.9rem;
+      transition: 0.2s ease;
+    }
+
+    .btn-primary {
+      background: var(--accent-color);
+      color: #042f2e;
+    }
+
+    .btn-primary:hover {
+      opacity: 0.9;
+      box-shadow: 0 0 15px var(--accent-glow);
+    }
+
+    .btn-secondary {
+      background: #334155;
+      color: var(--text-main);
+    }
+
+    .btn-secondary:hover {
+      background: #475569;
+    }
+
+    /* 動作標籤快速點選 */
+    .quick-tags {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 12px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+
+    .tag-btn {
+      background: #0f172a;
+      border: 1px solid var(--border-color);
+      color: var(--text-sub);
+      font-size: 0.75rem;
+      padding: 4px 8px;
+      border-radius: 6px;
+      white-space: nowrap;
+    }
+
+    .tag-btn:hover {
+      border-color: var(--info);
+      color: var(--info);
+    }
+
+    .form-group-row {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .input-field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .input-field label {
+      font-size: 0.72rem;
+      color: var(--text-sub);
+    }
+
+    input {
+      background: #0f172a;
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      outline: none;
+      width: 100%;
+    }
+
+    input:focus {
+      border-color: var(--accent-color);
+    }
+
+    .btn-record {
+      width: 100%;
+      background: #2563eb;
+      color: white;
+      padding: 12px;
+    }
+
+    .btn-record:hover {
+      background: #1d4ed8;
+    }
+
+    /* 歷史清單 */
+    .log-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .log-header h2 {
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+
+    .clear-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-sub);
+      font-size: 0.78rem;
+      cursor: pointer;
+    }
+
+    .clear-btn:hover {
+      color: var(--danger);
+    }
+
+    .log-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .log-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #0f172a;
+      border-radius: 8px;
+      padding: 8px 12px;
+      border: 1px solid var(--border-color);
+      font-size: 0.85rem;
+    }
+
+    .log-exercise {
+      font-weight: 600;
+    }
+
+    .log-detail {
+      color: var(--text-sub);
+      font-size: 0.8rem;
+      margin-left: 8px;
+    }
+
+    .delete-item {
+      background: transparent;
+      border: none;
+      color: var(--text-sub);
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+
+    .delete-item:hover {
+      color: var(--danger);
+    }
+
+    .empty-state {
+      text-align: center;
+      color: var(--text-sub);
+      font-size: 0.8rem;
+      padding: 16px 0;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <div>
+        <div class="brand-title">IronPulse</div>
+        <div class="brand-sub">智慧訓練組間計時與紀錄器</div>
+      </div>
+      <button class="sound-toggle-btn active" id="soundBtn" onclick="toggleSound()">🔔 提示音: 開</button>
+    </header>
+
+    <!-- 訓練數據統計 -->
+    <div class="stats-grid">
+      <div class="stat-box">
+        <div class="stat-val" id="totalSetsCount">0</div>
+        <div class="stat-label">今日完成組數</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val" id="totalVolume">0 kg</div>
+        <div class="stat-label">今日總訓練量 (Volume)</div>
+      </div>
+    </div>
+
+    <!-- 計時器 -->
+    <section class="card">
+      <div class="timer-display-wrapper">
+        <svg class="progress-ring" width="180" height="180">
+          <circle class="progress-ring__circle-bg" cx="90" cy="90" r="78" />
+          <circle class="progress-ring__circle" id="progressRing" cx="90" cy="90" r="78" />
+        </svg>
+        <div class="timer-text">
+          <div class="timer-time" id="timeDisplay">01:00</div>
+          <div class="timer-status" id="timerStatus">準備就緒</div>
+        </div>
+      </div>
+
+      <div class="preset-group">
+        <button class="preset-btn" onclick="setPreset(30, this)">30s</button>
+        <button class="preset-btn active" onclick="setPreset(60, this)">60s</button>
+        <button class="preset-btn" onclick="setPreset(90, this)">90s</button>
+        <button class="preset-btn" onclick="setPreset(120, this)">120s</button>
+        <button class="preset-btn" onclick="setPreset(180, this)">180s</button>
+      </div>
+
+      <div class="control-actions">
+        <button class="btn-primary" id="startBtn" onclick="toggleTimer()">開始計時</button>
+        <button class="btn-secondary" onclick="addTime(15)">+15s</button>
+        <button class="btn-secondary" onclick="resetTimer()">重置</button>
+      </div>
+    </section>
+
+    <!-- 訓練紀錄區塊 -->
+    <section class="card">
+      <div class="quick-tags">
+        <span style="font-size: 0.72rem; color: var(--text-sub); align-self: center;">常用：</span>
+        <button class="tag-btn" onclick="setExercise('深蹲')">深蹲</button>
+        <button class="tag-btn" onclick="setExercise('臥推')">臥推</button>
+        <button class="tag-btn" onclick="setExercise('硬舉')">硬舉</button>
+        <button class="tag-btn" onclick="setExercise('肩推')">肩推</button>
+        <button class="tag-btn" onclick="setExercise('引體向上')">引體向上</button>
+      </div>
+
+      <div class="form-group-row">
+        <div class="input-field">
+          <label>動作名稱</label>
+          <input type="text" id="exerciseName" placeholder="例如：深蹲" value="深蹲" />
+        </div>
+        <div class="input-field">
+          <label>重量 (kg)</label>
+          <input type="number" id="weightInput" placeholder="80" value="80" step="0.5" />
+        </div>
+        <div class="input-field">
+          <label>次數 (Reps)</label>
+          <input type="number" id="repsInput" placeholder="10" value="10" />
+        </div>
+      </div>
+      <button class="btn-record" onclick="logSetAndStartTimer()">完成此組 ＆ 自動倒數</button>
+    </section>
+
+    <!-- 紀錄清單 -->
+    <section class="card">
+      <div class="log-header">
+        <h2>今日課表歷程</h2>
+        <button class="clear-btn" onclick="clearLogs()">清除全部</button>
+      </div>
+      <div class="log-list" id="logList">
+        <div class="empty-state">尚未記錄任何組數，加油！</div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // --- 音效模組 ---
+    let soundEnabled = true;
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      const soundBtn = document.getElementById('soundBtn');
+      soundBtn.textContent = soundEnabled ? '🔔 提示音: 開' : '🔕 提示音: 靜音';
+      soundBtn.classList.toggle('active', soundEnabled);
+    }
+
+    function playBeep(freq = 440, duration = 0.15) {
+      if (!soundEnabled) return;
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + duration);
+    }
+
+    // --- 計時器邏輯 ---
+    let totalSeconds = 60;
+    let remainingSeconds = 60;
+    let timerInterval = null;
+    let isRunning = false;
+
+    const timeDisplay = document.getElementById('timeDisplay');
+    const timerStatus = document.getElementById('timerStatus');
+    const startBtn = document.getElementById('startBtn');
+    const circle = document.getElementById('progressRing');
+    const radius = circle.r.baseVal.value;
+    const circumference = 2 * Math.PI * radius;
+
+    circle.style.strokeDasharray = `${circumference} ${circumference}`;
+
+    function updateProgressRing() {
+      const progress = remainingSeconds / totalSeconds;
+      const offset = circumference - progress * circumference;
+      circle.style.strokeDashoffset = offset;
+    }
+
+    function formatTime(sec) {
+      const m = Math.floor(sec / 60).toString().padStart(2, '0');
+      const s = (sec % 60).toString().padStart(2, '0');
+      return `${m}:${s}`;
+    }
+
+    function renderTimer() {
+      timeDisplay.textContent = formatTime(remainingSeconds);
+      updateProgressRing();
+    }
+
+    function setPreset(sec, element) {
+      document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+      if (element) element.classList.add('active');
+      totalSeconds = sec;
+      resetTimer();
+    }
+
+    function toggleTimer() {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      if (isRunning) {
+        pauseTimer();
+      } else {
+        startTimer();
+      }
+    }
+
+    function startTimer() {
+      if (remainingSeconds <= 0) remainingSeconds = totalSeconds;
+      isRunning = true;
+      startBtn.textContent = '暫停';
+      startBtn.style.background = '#eab308';
+      timerStatus.textContent = '組間休息中';
+
+      timerInterval = setInterval(() => {
+        remainingSeconds--;
+        renderTimer();
+
+        if (remainingSeconds > 0 && remainingSeconds <= 3) {
+          playBeep(440, 0.1);
+        }
+
+        if (remainingSeconds <= 0) {
+          clearInterval(timerInterval);
+          isRunning = false;
+          startBtn.textContent = '開始計時';
+          startBtn.style.background = 'var(--accent-color)';
+          timerStatus.textContent = '時間到！準備下一組';
+          playBeep(880, 0.4);
+        }
+      }, 1000);
+    }
+
+    function pauseTimer() {
+      clearInterval(timerInterval);
+      isRunning = false;
+      startBtn.textContent = '繼續計時';
+      startBtn.style.background = 'var(--accent-color)';
+      timerStatus.textContent = '已暫停';
+    }
+
+    function resetTimer() {
+      clearInterval(timerInterval);
+      isRunning = false;
+      remainingSeconds = totalSeconds;
+      startBtn.textContent = '開始計時';
+      startBtn.style.background = 'var(--accent-color)';
+      timerStatus.textContent = '準備就緒';
+      renderTimer();
+    }
+
+    function addTime(sec) {
+      remainingSeconds += sec;
+      if (remainingSeconds > totalSeconds) totalSeconds = remainingSeconds;
+      renderTimer();
+    }
+
+    function setExercise(name) {
+      document.getElementById('exerciseName').value = name;
+    }
+
+    // --- 資料紀錄與總量統計 ---
+    let logs = JSON.parse(localStorage.getItem('ironpulse_logs') || '[]');
+
+    function saveAndRenderLogs() {
+      localStorage.setItem('ironpulse_logs', JSON.stringify(logs));
+      const logList = document.getElementById('logList');
+      const totalSetsCount = document.getElementById('totalSetsCount');
+      const totalVolume = document.getElementById('totalVolume');
+
+      totalSetsCount.textContent = logs.length;
+
+      // 計算總噸數（重量 * 次數）
+      const volume = logs.reduce((sum, item) => sum + (Number(item.weight) * Number(item.reps)), 0);
+      totalVolume.textContent = volume >= 1000 ? `${(volume / 1000).toFixed(2)} t` : `${volume} kg`;
+
+      if (logs.length === 0) {
+        logList.innerHTML = '<div class="empty-state">尚未記錄任何組數，加油！</div>';
+        return;
+      }
+
+      logList.innerHTML = logs.map((log, index) => `
+        <div class="log-item">
+          <div>
+            <span class="log-exercise">${log.name}</span>
+            <span class="log-detail">${log.weight} kg × ${log.reps} 次 • ${log.time}</span>
+          </div>
+          <button class="delete-item" onclick="deleteLog(${index})" title="刪除">✕</button>
+        </div>
+      `).join('');
+    }
+
+    function logSetAndStartTimer() {
+      const nameInput = document.getElementById('exerciseName');
+      const weightInput = document.getElementById('weightInput');
+      const repsInput = document.getElementById('repsInput');
+
+      const name = nameInput.value.trim() || '自訂動作';
+      const weight = parseFloat(weightInput.value) || 0;
+      const reps = parseInt(repsInput.value, 10) || 0;
+
+      const now = new Date();
+      const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+      logs.unshift({ name, weight, reps, time: timeStr });
+      saveAndRenderLogs();
+
+      resetTimer();
+      startTimer();
+    }
+
+    function deleteLog(index) {
+      logs.splice(index, 1);
+      saveAndRenderLogs();
+    }
+
+    function clearLogs() {
+      if (confirm('確定要清空所有紀錄嗎？')) {
+        logs = [];
+        saveAndRenderLogs();
+      }
+    }
+
+    renderTimer();
+    saveAndRenderLogs();
+  </script>
+</body>
+</html>
